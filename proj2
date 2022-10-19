@@ -1,0 +1,102 @@
+#define _CRT_SECURE_NO_WARNINGS
+#include<stdio.h>
+#include<string.h>
+#include<stdlib.h>
+#include<fcntl.h>
+
+
+char* args[15];
+
+void outre(char* input, int nindex,  char* output){ //"echo "hello world" > file1.txt" will write hellow world into a txt file
+	int filedesc = open(output, O_WRONLY | O_CREAT);
+	dup2(filedesc, 1);
+	input[nindex] == NULL;
+	pid_t fpid;
+	int count = 0;
+	fpid = fork();
+	if (fpid < 0) {
+		printf("Error in fork.");
+	}
+	else if (fpid == 0) {
+		//child process
+		execvp(args[0], input);
+	}
+	else {
+		waitpid(pid_t fpid);
+	}
+	
+}
+
+void inre() {//"./a.out < input.txt" take sthe output from a.out as an input and ouputs to input.txt
+
+}
+
+void pipe() {//"input | command"
+
+}
+
+void background(){//"action &" if this is done the action is run in the background and you can still activley type commands to shell. otherwise shell must wait for action to finish
+
+}
+
+void printDir() { //print directory
+	char cwd[1024];
+	getcwd(cwd, sizeof(cwd));
+	printf_s("\nDir: %s", cwd);
+}
+
+int main() {
+	while (1) {
+		printDir(); 
+		char* text[100];
+		fgets(text, 100, stdin);
+		text[strlen(text) - 1] = '/0'; // = 0; gets rid of \n
+		char *token = strtok(text, " "); // token to split string
+		int orflag=0 ,irflag=0, pflag=0, bgflag=0, cflag = 0;
+		int op = 0; //operation placement
+		for (int i = 0; token != NULL; i++) {
+			args[i] = token;
+			switch (*token) {
+			case '>':
+				orflag = 1; op = i;  break;
+			case '<':
+				irflag = 1; op = i; break;
+			case '|' :
+				pflag = 1; op = i; break;
+			case '&':
+				bgflag = 1; op = i; break;
+			case 'cd':
+				cflag = 1; op = i; break;
+			}
+			token = strtok(NULL, " ");
+		}
+		//---------------------------------------------------------------------------------------------------------------------------------------------
+		char* ls[10];
+		char* rs[10];
+		int lsdex = 0, rsdex = 0;
+		if (orflag == 1 || irflag == 1 || pflag == 1|| bgflag == 1 || cflag == 1) {
+
+			for (int i = 0; i < sizeof(args); i++) {
+				if (i < op) {
+					ls[lsdex] = args[i];
+					lsdex++;
+				}
+				else if (i > op) {
+					rs[rsdex] = args[i];
+					rsdex++;
+				}
+			}
+		}
+		else {
+			printf("Warning: No known command found\n");
+			continue;
+		}
+
+		//---------------------------------------------------------------------------------------------------------------------------------------------
+		if (orflag == 1)
+			//	outre(ls, lsdex, rs);
+			//else if ()
+			return 0;
+	}
+}
+ 
