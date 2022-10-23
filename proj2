@@ -3,100 +3,173 @@
 #include<string.h>
 #include<stdlib.h>
 #include<fcntl.h>
-
+#include<unistd.h>
+#include<sys/wait.h>
 
 char* args[15];
+int orflag=0 ,irflag=0, pflag=0, bgflag=0, cflag = 0;
 
-void outre(char* input, int nindex,  char* output){ //"echo "hello world" > file1.txt" will write hellow world into a txt file
-	int filedesc = open(output, O_WRONLY | O_CREAT);
-	dup2(filedesc, 1);
-	input[nindex] == NULL;
-	pid_t fpid;
-	int count = 0;
-	fpid = fork();
-	if (fpid < 0) {
-		printf("Error in fork.");
-	}
-	else if (fpid == 0) {
-		//child process
-		execvp(args[0], input);
-	}
-	else {
-		waitpid(pid_t fpid);
-	}
-	
-}
+void outre(char** input, char** output){ //"echo "hello world" > file1.txt" will write hellow world into a txt file
 
-void inre() {//"./a.out < input.txt" take sthe output from a.out as an input and ouputs to input.txt
-
-}
-
-void pipe() {//"input | command"
+    pid_t fpid;
+    int status;
+    fpid = fork();
+    if (fpid < 0) {
+        printf("Error in fork.");
+    }
+    else if (fpid == 0) {
+        //child process
+        int filedesc = open(*output, O_WRONLY | O_CREAT, 0777); //0777 give everyone all access
+        dup2(filedesc, 1);
+        if(filedesc < 0){
+            printf("Could not use file at output.");
+            exit(0);
+        }
+        execvp(args[0], input);
+        //exit(0);
+    }
+    else {
+        waitpid(-1, &status, 0);
+    }
 
 }
 
-void background(){//"action &" if this is done the action is run in the background and you can still activley type commands to shell. otherwise shell must wait for action to finish
+void inre(char** output, char** input) {//"./a.out < input.txt" take sthe output from a.out as an input and ouputs to input.txt
+    pid_t fpid;
+    int status;
+    fpid = fork();
+    if(fpid < 0){
+    printf("Error in fork.");
+    }
+    else if(fpid == 0){
+        int filedesc = open(*input, O_RDONLY, 0777);
+        dup2(filedesc, 0);
+        if(filedesc<0){
+            printf("File could not be used as input.");
+            exit(0);
+        }
+        execvp(args[0], output);
+    }
+    else{waitpid(-1, &status, 0);}
+}
 
+void pipesim(char** ls, char** rs) {//"input | command"
+    int fd[2];//here fd[0] becomes reading end, fd[1] becomes writing end
+    if(pipe(fd) == -1){printf("couldn't pipe fds./n");}
+    int pid1 = fork();
+    if(pid1 < 0){printf("could not fork/n");}
+    else if(pid1 == 0){
+        dup2(fd[1], 1);
+        close(fd[0]);
+        close(fd[1]);
+        execvp(ls[0], ls);
+    }
+    waitpid(pid1, NULL, 0);
+    int pid2 = fork();
+    if(pid2 < 0){printf("could not fork/n");}
+    else if(pid2 == 0){
+        dup2(fd[0], 0);
+        close(fd[0]);
+        close(fd[1]);
+        execvp(rs[0], rs);
+    }
+    close(fd[0]);
+    close(fd[1]);
+    waitpid(pid1, NULL, 0);
+    waitpid(pid2, NULL, 0);
+
+}
+
+void background(char** input){//"action &" if this is done the action is run in the background and you can still activley type commands to shell. otherwise shell must wait for action to finish
+    int fpid = fork();
+    if(fpid<0){printf("fork failed.\n");}
+    else if(fpid == 0){
+        execvp(input[0], input);
+    }
+}
+
+void cd(input){
+    chdir(input);
 }
 
 void printDir() { //print directory
-	char cwd[1024];
-	getcwd(cwd, sizeof(cwd));
-	printf_s("\nDir: %s", cwd);
+    char cwd[1024];
+    getcwd(cwd, sizeof(cwd));
+    printf("\nDir: %s: ", cwd);
 }
 
 int main() {
-	while (1) {
-		printDir(); 
-		char* text[100];
-		fgets(text, 100, stdin);
-		text[strlen(text) - 1] = '/0'; // = 0; gets rid of \n
-		char *token = strtok(text, " "); // token to split string
-		int orflag=0 ,irflag=0, pflag=0, bgflag=0, cflag = 0;
-		int op = 0; //operation placement
-		for (int i = 0; token != NULL; i++) {
-			args[i] = token;
-			switch (*token) {
-			case '>':
-				orflag = 1; op = i;  break;
-			case '<':
-				irflag = 1; op = i; break;
-			case '|' :
-				pflag = 1; op = i; break;
-			case '&':
-				bgflag = 1; op = i; break;
-			case 'cd':
-				cflag = 1; op = i; break;
-			}
-			token = strtok(NULL, " ");
-		}
-		//---------------------------------------------------------------------------------------------------------------------------------------------
-		char* ls[10];
-		char* rs[10];
-		int lsdex = 0, rsdex = 0;
-		if (orflag == 1 || irflag == 1 || pflag == 1|| bgflag == 1 || cflag == 1) {
+    while (1) {
+        printDir();
+        char text[100];
+        memset(text, 0, 100);
+        fgets(text, 100, stdin);
+        text[strlen(text) - 1] = 0; // = 0; gets rid of \n
+        char* token = strtok(text, " "); // token to split string
+        orflag=0 ,irflag=0, pflag=0, bgflag=0, cflag = 0;
+        int op = 0; //operation placement
+        int size = 0;
+        for (int i = 0; token != NULL; i++) {
+            args[i] = token;
+            if (args[i][strlen(args[i]) - 1] == 10){ //[sizeof(args[i]) - 3] [strlen(args[i]) - 1]
+                args[i][strlen(args[i]) - 1] = 0;
+            }
+            switch (*token) {
+            case '>':
+                orflag = 1; op = i;  break;
+            case '<':
+                irflag = 1; op = i; break;
+            case '|' :
+                pflag = 1; op = i; break;
+            case '&':
+                bgflag = 1; op = i; break;
+            }
+            if(strcmp(*args, "cd") == 0){
+            cflag = 1;
+            }
+            token = strtok(NULL, " ");
+            size++;
+        }
+        int rssize = size - op; //size of rs array
+        //---------------------------------------------------------------------------------------------------------------------------------------------
+        char* ls[op+1];
+        char* rs[rssize];
+        int lsdex = 0, rsdex = 0;
+        if (orflag == 1 || irflag == 1 || pflag == 1|| bgflag == 1 || cflag == 1) {
 
-			for (int i = 0; i < sizeof(args); i++) {
-				if (i < op) {
-					ls[lsdex] = args[i];
-					lsdex++;
-				}
-				else if (i > op) {
-					rs[rsdex] = args[i];
-					rsdex++;
-				}
-			}
-		}
-		else {
-			printf("Warning: No known command found\n");
-			continue;
-		}
+            for (int i = 0; i < size; i++) {
+                if (i < op) {
+                    ls[lsdex] = args[i];
+                    lsdex++;
+                }
+                else if (i > op) {
+                    rs[rsdex] = args[i];
+                    rsdex++;
+                }
+                else{
+                    ls[lsdex] = NULL; // this is done for execvp()
+                }
+            }
+        }
+        else {
+            printf("Warning: No known functional symbols found\n");
+            continue;
+        }
+        rs[rsdex] = NULL;
+        //---------------------------------------------------------------------------------------------------------------------------------------------
+        if (orflag == 1)
+            outre(ls, rs);
+        else if(irflag == 1)
+            inre(ls, rs);
+        else if(pflag == 1)
+            pipesim(ls, rs);
+        else if(bgflag == 1)
+            background(ls);
+        else if(cflag == 1){
+            char cw[100];
+            if(chdir(rs[0]) == -1){printf("cd failed.");}
+            else{printf("new directory is %s\n", getcwd(cw, 100));}
+        }
 
-		//---------------------------------------------------------------------------------------------------------------------------------------------
-		if (orflag == 1)
-			//	outre(ls, lsdex, rs);
-			//else if ()
-			return 0;
-	}
+    }
 }
- 
